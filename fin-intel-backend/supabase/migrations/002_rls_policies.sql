@@ -1,0 +1,5 @@
+-- ============================================================
+-- 002_rls_policies.sql
+-- RLS intentionally not used — org isolation is enforced in the backend.
+-- See 006_remove_rls_completely.sql for databases that had RLS enabled earlier.
+-- ============================================================

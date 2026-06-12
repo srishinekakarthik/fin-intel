@@ -1,0 +1,151 @@
+{
+  "name": "FinIntel — Scheduled Reports",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 8 * * 1" }]
+        }
+      },
+      "id": "node-weekly-cron",
+      "name": "Cron: Every Monday 8am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 200],
+      "notes": "Triggers weekly report generation every Monday at 8am UTC"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 8 1 * *" }]
+        }
+      },
+      "id": "node-monthly-cron",
+      "name": "Cron: 1st of Month 8am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 400],
+      "notes": "Triggers monthly report on the 1st of each month"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "0 8 1 1,4,7,10 *" }]
+        }
+      },
+      "id": "node-quarterly-cron",
+      "name": "Cron: Quarterly",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 600],
+      "notes": "Triggers quarterly report on Jan 1, Apr 1, Jul 1, Oct 1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fetch all active orgs from Supabase\nconst response = await fetch(\n  `https://unlovable-target-dominoes.ngrok-free.dev/api/v1/reports/active-orgs`,\n  { headers: { 'X-Callback-Secret': '8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174' } }\n);\nconst { data: orgs } = await response.json();\n\n// Create one item per org for the next step\nreturn orgs.map(org => ({ json: { orgId: org.id, reportType: 'weekly' } }));"
+      },
+      "id": "node-prep-weekly",
+      "name": "Code: Prep Weekly Jobs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nreturn [{ json: { ...item, reportType: 'monthly' } }];"
+      },
+      "id": "node-prep-monthly",
+      "name": "Code: Prep Monthly Jobs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nreturn [{ json: { ...item, reportType: 'quarterly' } }];"
+      },
+      "id": "node-prep-quarterly",
+      "name": "Code: Prep Quarterly Jobs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 600]
+    },
+    {
+      "parameters": {
+        "url": "=https://unlovable-target-dominoes.ngrok-free.dev/api/v1/reports/trigger",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Callback-Secret", "value": "8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "orgId", "value": "={{ $json.orgId }}" },
+            { "name": "reportType", "value": "={{ $json.reportType }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-trigger-report",
+      "name": "HTTP: Trigger Report Generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 400],
+      "notes": "Calls backend to generate the report for the org. Backend runs Gemini generation."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build email body from report response\nconst result = $input.first().json;\nreturn [{\n  json: {\n    orgId: result.data?.orgId || 'unknown',\n    reportId: result.data?.reportId,\n    subject: `FinIntel: ${result.data?.reportType || 'Report'} Ready`,\n    body: `Your ${result.data?.reportType || ''} financial intelligence report has been generated and is ready to view in FinIntel.\\n\\nReport ID: ${result.data?.reportId}\\n\\nLog in at http://localhost:5173 to read the full report.`\n  }\n}];"
+      },
+      "id": "node-build-email",
+      "name": "Code: Build Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 400]
+    },
+    {
+      "parameters": {
+        "url": "=https://unlovable-target-dominoes.ngrok-free.dev/api/v1/reports/notify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "X-Callback-Secret", "value": "8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "orgId", "value": "={{ $json.orgId }}" },
+            { "name": "reportId", "value": "={{ $json.reportId }}" },
+            { "name": "subject", "value": "={{ $json.subject }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-send-notification",
+      "name": "HTTP: Send Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 400],
+      "notes": "Notifies org members that their report is ready. Backend creates alerts."
+    }
+  ],
+  "connections": {
+    "Cron: Every Monday 8am": { "main": [[{ "node": "Code: Prep Weekly Jobs", "type": "main", "index": 0 }]] },
+    "Cron: 1st of Month 8am": { "main": [[{ "node": "Code: Prep Monthly Jobs", "type": "main", "index": 0 }]] },
+    "Cron: Quarterly":        { "main": [[{ "node": "Code: Prep Quarterly Jobs", "type": "main", "index": 0 }]] },
+    "Code: Prep Weekly Jobs":    { "main": [[{ "node": "HTTP: Trigger Report Generation", "type": "main", "index": 0 }]] },
+    "Code: Prep Monthly Jobs":   { "main": [[{ "node": "HTTP: Trigger Report Generation", "type": "main", "index": 0 }]] },
+    "Code: Prep Quarterly Jobs": { "main": [[{ "node": "HTTP: Trigger Report Generation", "type": "main", "index": 0 }]] },
+    "HTTP: Trigger Report Generation": { "main": [[{ "node": "Code: Build Email", "type": "main", "index": 0 }]] },
+    "Code: Build Email": { "main": [[{ "node": "HTTP: Send Notification", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "Scheduled report generation. Runs weekly (Mon 8am), monthly (1st), and quarterly. Triggers backend Gemini-powered report generation, then notifies org users."
+  }
+}

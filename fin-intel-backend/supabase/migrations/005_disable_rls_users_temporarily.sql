@@ -1,0 +1,1 @@
+-- Superseded by 006_remove_rls_completely.sql (RLS removed from this project).
