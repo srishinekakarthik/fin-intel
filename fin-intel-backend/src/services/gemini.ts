@@ -1,10 +1,14 @@
 import { GoogleGenerativeAI, TaskType } from '@google/generative-ai';
 import { env } from '../config/env';
 
+// Single client — apiVersion is set per-call via requestOptions.
 const genAI = new GoogleGenerativeAI(env.GOOGLE_GEMINI_API_KEY);
 
-const EMBEDDING_MODEL = 'text-embedding-004';   // 768 dims — matches pgvector column
-const GENERATION_MODEL = 'gemini-1.5-pro';
+// text-embedding-004 is no longer available on newer API keys.
+// gemini-embedding-001 outputs 3072 dims by default; we truncate to 768
+// via outputDimensionality to stay compatible with the existing vector(768) pgvector column.
+const EMBEDDING_MODEL = 'gemini-embedding-001';
+const GENERATION_MODEL = 'gemini-2.5-flash'; // upgraded from 1.5-pro — better perf, available on current keys
 
 // ── Embeddings ────────────────────────────────────────────
 // NOTE: Batch embedding (for ingestion) is handled by n8n.
@@ -12,14 +16,16 @@ const GENERATION_MODEL = 'gemini-1.5-pro';
 
 /**
  * Embed a single query string for semantic search (RAG retrieval).
- * Uses RETRIEVAL_QUERY task type — paired with RETRIEVAL_DOCUMENT on the n8n side.
+ * outputDimensionality: 768 truncates gemini-embedding-001's native 3072-dim
+ * output to match the vector(768) column in document_chunks.
  */
 export async function embedText(text: string): Promise<number[]> {
   const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
   const result = await model.embedContent({
     content: { role: 'user', parts: [{ text }] },
     taskType: TaskType.RETRIEVAL_QUERY,
-  });
+    outputDimensionality: 768,
+  } as Parameters<typeof model.embedContent>[0]);
   return result.embedding.values;
 }
 
