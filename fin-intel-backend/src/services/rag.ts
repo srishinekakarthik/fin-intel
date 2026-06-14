@@ -1,6 +1,7 @@
 
 import { semanticSearch, searchResultsToCitations } from './vector-search';
-import { generateWithHistory } from './gemini';
+import { generateWithHistory, generateWithHistoryAndSearch } from './gemini';
+import type { ExternalContext } from './external-context';
 import type { Citation } from '../types';
 
 export interface RagContext {
@@ -18,33 +19,51 @@ export interface RagResult {
   answer: string;
   citations: Citation[];
   contextChunks: number;
+  externalSourcesUsed: number;
 }
 
 // ── System prompt ─────────────────────────────────────────
 
-function buildSystemPrompt(_context: RagContext, companyName?: string): string {
+function buildSystemPrompt(
+  _context: RagContext,
+  companyName?: string,
+  hasExternalData = false
+): string {
   const scope = companyName
-    ? `You are analyzing documents related to **${companyName}**.`
-    : 'You are analyzing the organization\'s financial document library.';
+    ? `You are analyzing data related to **${companyName}**.`
+    : 'You are a financial intelligence assistant for the organization.';
+
+  const sourceRules = hasExternalData
+    ? `SOURCE PRIORITY ORDER (use all that are relevant):
+1. **Uploaded Documents** — cite as [Source: "<document title>", Page N]
+2. **Live Market Data** (Finnhub) — cite as [Source: Finnhub, <date>]
+3. **SEC Filings** (EDGAR) — cite as [Source: SEC EDGAR, <form> <date>]
+4. **Yahoo Finance** — cite as [Source: Yahoo Finance]
+5. **Web Search** (Gemini Search) — cite as [Source: Web Search]`
+    : `SOURCE RULES:
+1. Answer based on the provided document context. Cite as [Source: "<document title>", Page N].
+2. If documents don't have the answer, say so and offer what you know from general financial knowledge.`;
 
   return `You are an expert AI Financial Analyst assistant for a financial intelligence platform.
 ${scope}
 
+${sourceRules}
+
 CRITICAL RULES:
-1. Answer ONLY based on the provided document context below. Do not use outside knowledge.
-2. If the context does not contain enough information to answer, say: "I don't have enough information in the indexed documents to answer this. Try uploading more relevant documents."
-3. Always cite your sources using [Source: <document title>, Page <number>] format inline.
-4. Be precise with numbers, dates, and financial figures — quote them exactly as they appear.
-5. For comparisons or trend analysis, structure your answer clearly.
-6. Never fabricate data, financials, or quotes.
-7. Keep answers concise but complete. Use bullet points for lists of facts.`;
+- Be precise with numbers, dates, and financial figures — quote them exactly as provided.
+- For comparisons or trend analysis, structure your answer clearly with bullet points.
+- Never fabricate data, financials, or quotes.
+- Keep answers concise but complete.
+- If you have both document context AND live data, synthesize them into a unified answer.
+- Always indicate the source of each key fact.`;
 }
 
-// ── Context builder ───────────────────────────────────────
+// ── Context builders ──────────────────────────────────────
 
-function buildContextBlock(chunks: Awaited<ReturnType<typeof semanticSearch>>): string {
-  if (!chunks.length) return 'No relevant document sections found.';
-
+function buildDocumentContextBlock(
+  chunks: Awaited<ReturnType<typeof semanticSearch>>
+): string {
+  if (!chunks.length) return '';
   return chunks
     .map(
       (c, i) =>
@@ -53,23 +72,32 @@ function buildContextBlock(chunks: Awaited<ReturnType<typeof semanticSearch>>): 
     .join('\n\n---\n\n');
 }
 
+function buildExternalContextBlock(external: ExternalContext): string {
+  if (!external.hasData) return '';
+  return external.sources
+    .map((s) => `### ${s.label}\n${s.content}`)
+    .join('\n\n---\n\n');
+}
+
 // ── Main RAG function ─────────────────────────────────────
 
 /**
- * Run a RAG query:
- *   1. Embed the user's question
- *   2. Retrieve top-K similar chunks from pgvector (org/company scoped)
- *   3. Build context block with source attribution
- *   4. Send to Gemini with conversation history
- *   5. Return answer + citations
+ * Run a multi-source RAG query:
+ *   1. Embed the user's question → retrieve top-K document chunks
+ *   2. Merge with external financial context (Finnhub, EDGAR, Yahoo Finance)
+ *   3. Build unified context block with source attribution
+ *   4. Send to Gemini 2.5-flash with conversation history
+ *   5. If no local context found → fall back to Gemini web search grounding
+ *   6. Return answer + citations
  */
 export async function runRag(
   question: string,
   history: RagMessage[],
   context: RagContext,
-  companyName?: string
+  companyName?: string,
+  externalContext?: ExternalContext
 ): Promise<RagResult> {
-  // 1. Semantic retrieval
+  // 1. Document semantic retrieval (always runs)
   const chunks = await semanticSearch(question, context.orgId, {
     companyId: context.companyId,
     documentIds: context.documentIds,
@@ -77,36 +105,59 @@ export async function runRag(
     threshold: 0.60,
   });
 
-  // 2. Build context
-  const contextBlock = buildContextBlock(chunks);
+  const docContext    = buildDocumentContextBlock(chunks);
+  const extContext    = externalContext ? buildExternalContextBlock(externalContext) : '';
+  const hasAnyContext = docContext.length > 0 || extContext.length > 0;
+  const hasExternal   = (externalContext?.hasData) ?? false;
 
-  // 3. Build the augmented prompt
-  const augmentedQuestion = `DOCUMENT CONTEXT:
-${contextBlock}
+  // 2. Build the augmented prompt
+  const contextSections: string[] = [];
+
+  if (docContext) {
+    contextSections.push(`## UPLOADED DOCUMENT CONTEXT\n${docContext}`);
+  }
+  if (extContext) {
+    contextSections.push(`## LIVE FINANCIAL DATA\n${extContext}`);
+  }
+
+  const augmentedQuestion = contextSections.length
+    ? `${contextSections.join('\n\n===\n\n')}
 
 ---
 
 USER QUESTION: ${question}
 
-Answer based on the document context above. Cite sources inline as [Source: "title", Page N].`;
+Answer based on all context provided above. Cite each source inline as specified in your instructions.`
+    : question;
 
-  // 4. Generate with Gemini (passing conversation history for multi-turn)
-  const answer = await generateWithHistory(
-    history,
-    augmentedQuestion,
-    {
-      systemPrompt: buildSystemPrompt(context, companyName),
+  const systemPrompt = buildSystemPrompt(context, companyName, hasExternal);
+
+  // 3. Generate answer
+  let answer: string;
+
+  if (!hasAnyContext) {
+    // No document chunks AND no external API data — use Gemini web search grounding
+    answer = await generateWithHistoryAndSearch(history, augmentedQuestion, {
+      systemPrompt,
+      temperature: 0.2,
+      maxOutputTokens: 2048,
+    });
+  } else {
+    // We have local context — use standard generation (more controlled)
+    answer = await generateWithHistory(history, augmentedQuestion, {
+      systemPrompt,
       temperature: 0.1, // low temp for factual financial answers
       maxOutputTokens: 2048,
-    }
-  );
+    });
+  }
 
-  // 5. Build citations from retrieved chunks
+  // 4. Build citations from document chunks
   const citations = searchResultsToCitations(chunks);
 
   return {
     answer,
     citations,
     contextChunks: chunks.length,
+    externalSourcesUsed: externalContext?.sources.length ?? 0,
   };
 }

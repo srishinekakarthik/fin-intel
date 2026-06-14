@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '../../config/supabase';
 import { AppError } from '../../middleware/error';
 import { runRag, type RagMessage } from '../../services/rag';
+import { buildExternalContext } from '../../services/external-context';
+import { logger } from '../../config/logger';
 
 import type { ChatSession, ChatMessage, AuthContext } from '../../types';
 
@@ -177,7 +179,32 @@ export class ChatService {
       citations: [],
     });
 
-    // 5. Run RAG
+    // 5. Build external financial context in parallel with message persistence
+    //    (detect tickers/intent and fetch Finnhub, EDGAR, Yahoo Finance data)
+    const sessionTicker = session.company_id
+      ? (await supabaseAdmin
+          .from('companies')
+          .select('ticker')
+          .eq('id', session.company_id)
+          .single()
+        ).data?.ticker ?? null
+      : null;
+
+    const externalContext = await buildExternalContext(
+      input.content,
+      auth.orgId,
+      sessionTicker
+    );
+
+    if (externalContext.hasData) {
+      logger.info('Chat: external context fetched', {
+        sessionId: input.sessionId,
+        sources: externalContext.sources.map((s) => s.type),
+        tickers: externalContext.tickers,
+      });
+    }
+
+    // 6. Run RAG (document chunks + external context → Gemini)
     const ragResult = await runRag(
       input.content,
       history,
@@ -186,10 +213,11 @@ export class ChatService {
         companyId: session.company_id ?? undefined,
         documentIds,
       },
-      companyName
+      companyName,
+      externalContext
     );
 
-    // 6. Persist AI response with citations
+    // 7. Persist AI response with citations
     const { data: aiMessage, error: msgError } = await supabaseAdmin
       .from('chat_messages')
       .insert({
@@ -197,7 +225,10 @@ export class ChatService {
         role: 'assistant',
         content: ragResult.answer,
         citations: ragResult.citations,
-        metadata: { contextChunks: ragResult.contextChunks },
+        metadata: {
+          contextChunks: ragResult.contextChunks,
+          externalSourcesUsed: ragResult.externalSourcesUsed,
+        },
       })
       .select()
       .single();

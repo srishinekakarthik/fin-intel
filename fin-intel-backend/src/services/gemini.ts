@@ -85,3 +85,38 @@ export async function generateWithHistory(
   const result = await chat.sendMessage(newMessage);
   return result.response.text();
 }
+
+/**
+ * Generate text with conversation history AND Google Search grounding.
+ * Used when neither document chunks nor external API data is available.
+ * Gemini will autonomously decide when to invoke web search.
+ *
+ * Available on gemini-2.0-flash and gemini-2.5-flash (current model).
+ */
+export async function generateWithHistoryAndSearch(
+  history: Array<{ role: 'user' | 'model'; content: string }>,
+  newMessage: string,
+  opts: GenerateOptions = {}
+): Promise<string> {
+  const model = genAI.getGenerativeModel({
+    model: GENERATION_MODEL,
+    systemInstruction: opts.systemPrompt,
+    generationConfig: {
+      temperature: opts.temperature ?? 0.2,
+      maxOutputTokens: opts.maxOutputTokens ?? 2048,
+    },
+    // Enable Gemini's built-in Google Search grounding
+    tools: [{ googleSearch: {} } as unknown as import('@google/generative-ai').Tool],
+  });
+
+  const chat = model.startChat({
+    history: history.map((h) => ({
+      role: h.role,
+      parts: [{ text: h.content }],
+    })),
+  });
+
+  const result = await chat.sendMessage(newMessage);
+  return result.response.text();
+}
+
