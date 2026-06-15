@@ -11,7 +11,9 @@ export const logger = winston.createLogger({
       format:
         env.NODE_ENV === 'production'
           ? combine(timestamp(), json())
-          : combine(colorize(), simple()),
+          : combine(colorize(), winston.format.printf(({ level, message, ...meta }) => {
+              return `${level}: ${message} ${Object.keys(meta).length ? JSON.stringify(meta, null, 2) : ''}`;
+            })),
     }),
   ],
 });

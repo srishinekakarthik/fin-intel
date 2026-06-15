@@ -91,7 +91,7 @@ export async function generateWithHistory(
  * Used when neither document chunks nor external API data is available.
  * Gemini will autonomously decide when to invoke web search.
  *
- * Available on gemini-2.0-flash and gemini-2.5-flash (current model).
+ * Available on gemini-2.0-flash and gemini-3.5-flash (current model).
  */
 export async function generateWithHistoryAndSearch(
   history: Array<{ role: 'user' | 'model'; content: string }>,

@@ -3,45 +3,71 @@
   "nodes": [
     {
       "parameters": {
-        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 7 * * *" }] }
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
       },
       "id": "node-sec-cron",
       "name": "Cron: Daily 7am — SEC",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [240, 200],
+      "position": [
+        240,
+        200
+      ],
       "notes": "Checks SEC EDGAR every morning at 7am UTC for new filings"
     },
     {
       "parameters": {
-        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 */6 * * *" }] }
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */6 * * *"
+            }
+          ]
+        }
       },
       "id": "node-news-cron",
       "name": "Cron: Every 6 Hours — News",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [240, 440],
+      "position": [
+        240,
+        440
+      ],
       "notes": "Checks Finnhub news every 6 hours for tracked companies"
     },
     {
       "parameters": {
-        "jsCode": "// Fetch all active orgs\nconst response = await fetch(\n  `https://unlovable-target-dominoes.ngrok-free.dev/api/v1/reports/active-orgs`,\n  { headers: { 'X-Callback-Secret': '8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174' } }\n);\nconst { data: orgs } = await response.json();\nreturn orgs.map(org => ({ json: { orgId: org.id } }));"
+        "jsCode": "// Fetch all active orgs\nconst response = await this.helpers.httpRequest({ method: 'GET', url: `https://unlovable-target-dominoes.ngrok-free.dev/api/v1/reports/active-orgs`, headers: { 'X-Callback-Secret': '8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174' }, json: true });\nconst orgs = response.data;\nreturn orgs.map(org => ({ json: { orgId: org.id } }));"
       },
       "id": "node-fetch-orgs-sec",
       "name": "Code: Fetch Orgs (SEC)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [480, 200]
+      "position": [
+        480,
+        200
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const response = await fetch(\n  `https://unlovable-target-dominoes.ngrok-free.dev/api/v1/reports/active-orgs`,\n  { headers: { 'X-Callback-Secret': '8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174' } }\n);\nconst { data: orgs } = await response.json();\nreturn orgs.map(org => ({ json: { orgId: org.id } }));"
+        "jsCode": "const response = await this.helpers.httpRequest({ method: 'GET', url: `https://unlovable-target-dominoes.ngrok-free.dev/api/v1/reports/active-orgs`, headers: { 'X-Callback-Secret': '8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174' }, json: true });\nconst orgs = response.data;\nreturn orgs.map(org => ({ json: { orgId: org.id } }));"
       },
       "id": "node-fetch-orgs-news",
       "name": "Code: Fetch Orgs (News)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [480, 440]
+      "position": [
+        480,
+        440
+      ]
     },
     {
       "parameters": {
@@ -49,20 +75,35 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "X-Callback-Secret", "value": "8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Callback-Secret",
+              "value": "8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174"
+            }
           ]
         },
         "sendBody": true,
         "bodyParameters": {
-          "parameters": [{ "name": "orgId", "value": "={{ $json.orgId }}" }]
-        }
+          "parameters": [
+            {
+              "name": "orgId",
+              "value": "={{ $json.orgId }}"
+            }
+          ]
+        },
+        "method": "POST"
       },
       "id": "node-trigger-sec",
       "name": "HTTP: Trigger SEC Monitor",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [720, 200],
+      "position": [
+        720,
+        200
+      ],
       "notes": "Backend checks EDGAR, creates alerts for new filings, AI-summarizes them"
     },
     {
@@ -71,20 +112,35 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "X-Callback-Secret", "value": "8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Callback-Secret",
+              "value": "8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174"
+            }
           ]
         },
         "sendBody": true,
         "bodyParameters": {
-          "parameters": [{ "name": "orgId", "value": "={{ $json.orgId }}" }]
-        }
+          "parameters": [
+            {
+              "name": "orgId",
+              "value": "={{ $json.orgId }}"
+            }
+          ]
+        },
+        "method": "POST"
       },
       "id": "node-trigger-news",
       "name": "HTTP: Trigger News Monitor",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [720, 440],
+      "position": [
+        720,
+        440
+      ],
       "notes": "Backend checks Finnhub news, creates alerts for significant articles"
     },
     {
@@ -95,7 +151,10 @@
       "name": "Code: Any New SEC Alerts?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [960, 200],
+      "position": [
+        960,
+        200
+      ],
       "notes": "Only continues if new alerts were created — avoids spam notifications"
     },
     {
@@ -106,7 +165,10 @@
       "name": "Code: Any New News Alerts?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [960, 440]
+      "position": [
+        960,
+        440
+      ]
     },
     {
       "parameters": {
@@ -114,24 +176,43 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "X-Callback-Secret", "value": "8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Callback-Secret",
+              "value": "8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174"
+            }
           ]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            { "name": "orgId", "value": "={{ $json.orgId }}" },
-            { "name": "subject", "value": "={{ $json.alertsCreated }} new SEC filing alert(s) in FinIntel" },
-            { "name": "type", "value": "alert" }
+            {
+              "name": "orgId",
+              "value": "={{ $json.orgId }}"
+            },
+            {
+              "name": "subject",
+              "value": "={{ $json.alertsCreated }} new SEC filing alert(s) in FinIntel"
+            },
+            {
+              "name": "type",
+              "value": "alert"
+            }
           ]
-        }
+        },
+        "method": "POST"
       },
       "id": "node-notify-sec",
       "name": "HTTP: Notify — SEC",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1200, 200]
+      "position": [
+        1200,
+        200
+      ]
     },
     {
       "parameters": {
@@ -139,37 +220,138 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "X-Callback-Secret", "value": "8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174" }
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Callback-Secret",
+              "value": "8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174"
+            }
           ]
         },
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
-            { "name": "orgId", "value": "={{ $json.orgId }}" },
-            { "name": "subject", "value": "={{ $json.alertsCreated }} new news alert(s) in FinIntel" },
-            { "name": "type", "value": "alert" }
+            {
+              "name": "orgId",
+              "value": "={{ $json.orgId }}"
+            },
+            {
+              "name": "subject",
+              "value": "={{ $json.alertsCreated }} new news alert(s) in FinIntel"
+            },
+            {
+              "name": "type",
+              "value": "alert"
+            }
           ]
-        }
+        },
+        "method": "POST"
       },
       "id": "node-notify-news",
       "name": "HTTP: Notify — News",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1200, 440]
+      "position": [
+        1200,
+        440
+      ]
     }
   ],
   "connections": {
-    "Cron: Daily 7am — SEC":    { "main": [[{ "node": "Code: Fetch Orgs (SEC)",    "type": "main", "index": 0 }]] },
-    "Cron: Every 6 Hours — News":{ "main": [[{ "node": "Code: Fetch Orgs (News)",  "type": "main", "index": 0 }]] },
-    "Code: Fetch Orgs (SEC)":   { "main": [[{ "node": "HTTP: Trigger SEC Monitor", "type": "main", "index": 0 }]] },
-    "Code: Fetch Orgs (News)":  { "main": [[{ "node": "HTTP: Trigger News Monitor","type": "main", "index": 0 }]] },
-    "HTTP: Trigger SEC Monitor":{ "main": [[{ "node": "Code: Any New SEC Alerts?", "type": "main", "index": 0 }]] },
-    "HTTP: Trigger News Monitor":{"main": [[{ "node": "Code: Any New News Alerts?","type": "main", "index": 0 }]] },
-    "Code: Any New SEC Alerts?":{ "main": [[{ "node": "HTTP: Notify — SEC",        "type": "main", "index": 0 }]] },
-    "Code: Any New News Alerts?":{"main": [[{ "node": "HTTP: Notify — News",       "type": "main", "index": 0 }]] }
+    "Cron: Daily 7am — SEC": {
+      "main": [
+        [
+          {
+            "node": "Code: Fetch Orgs (SEC)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cron: Every 6 Hours — News": {
+      "main": [
+        [
+          {
+            "node": "Code: Fetch Orgs (News)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Fetch Orgs (SEC)": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Trigger SEC Monitor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Fetch Orgs (News)": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Trigger News Monitor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: Trigger SEC Monitor": {
+      "main": [
+        [
+          {
+            "node": "Code: Any New SEC Alerts?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP: Trigger News Monitor": {
+      "main": [
+        [
+          {
+            "node": "Code: Any New News Alerts?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Any New SEC Alerts?": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Notify — SEC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code: Any New News Alerts?": {
+      "main": [
+        [
+          {
+            "node": "HTTP: Notify — News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" },
+  "settings": {
+    "executionOrder": "v1"
+  },
   "meta": {
     "description": "Monitors SEC EDGAR for new filings (daily 7am UTC) and Finnhub for financial news (every 6h). Creates AI-summarised alerts in FinIntel and notifies users only when new content is found."
   }

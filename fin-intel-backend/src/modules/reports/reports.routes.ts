@@ -107,7 +107,14 @@ router.post(
         companyId: req.body.companyId,
         triggerSource: 'n8n',
       });
-      res.json({ data: { reportId }, message: 'Report generation started' });
+      res.json({ 
+        data: { 
+          reportId, 
+          orgId: req.body.orgId, 
+          reportType: req.body.reportType 
+        }, 
+        message: 'Report generation started' 
+      });
     } catch (err) { next(err); }
   }
 );
