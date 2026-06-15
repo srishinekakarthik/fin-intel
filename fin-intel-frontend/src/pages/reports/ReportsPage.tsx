@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   BarChart3, Plus, Loader2, CheckCircle2, XCircle,
   Clock, RefreshCw, Trash2, ChevronRight,
@@ -118,10 +119,8 @@ function GenerateReportModal({ onClose }: { onClose: () => void }) {
 // ── Report Viewer ─────────────────────────────────────────
 
 function ReportViewer({ report, onClose }: { report: Report; onClose: () => void }) {
-  // Poll if still generating
-  const { data: live } = useReport(
-    report.status === 'generating' || report.status === 'pending' ? report.id : null
-  );
+  // Always fetch full report (list query doesn't include content)
+  const { data: live, isLoading: isFetching } = useReport(report.id);
   const current = live ?? report;
 
   return (
@@ -145,7 +144,12 @@ function ReportViewer({ report, onClose }: { report: Report; onClose: () => void
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {current.status === 'generating' || current.status === 'pending' ? (
+          {isFetching && !live ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3">
+              <Loader2 size={32} className="text-blue-500 animate-spin" />
+              <p className="text-gray-400 text-sm">Loading report…</p>
+            </div>
+          ) : current.status === 'generating' || current.status === 'pending' ? (
             <div className="flex flex-col items-center justify-center h-full gap-3">
               <Loader2 size={32} className="text-blue-500 animate-spin" />
               <p className="text-gray-400 text-sm">Generating report with Gemini AI…</p>
@@ -187,9 +191,22 @@ export default function ReportsPage() {
   const [showGenerate, setShowGenerate] = useState(false);
   const [viewingReport, setViewingReport] = useState<Report | null>(null);
   const [typeFilter, setTypeFilter] = useState<ReportType | ''>('');
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { data, isLoading } = useReports(typeFilter ? { report_type: typeFilter } : undefined);
   const deleteReport = useDeleteReport();
+
+  // Auto-open a report if ?open=<reportId> is present
+  const openReportId = searchParams.get('open');
+  const { data: linkedReport } = useReport(openReportId && !viewingReport ? openReportId : null);
+
+  useEffect(() => {
+    if (linkedReport && openReportId) {
+      setViewingReport(linkedReport as Report);
+      // Clear the query param so closing/reopening works cleanly
+      setSearchParams({}, { replace: true });
+    }
+  }, [linkedReport, openReportId, setSearchParams]);
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();

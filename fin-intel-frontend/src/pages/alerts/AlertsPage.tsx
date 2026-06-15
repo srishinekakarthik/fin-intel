@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Bell, FileText, Newspaper, CheckCheck, Trash2,
-  ExternalLink, Loader2, ChevronDown, ChevronUp, Filter,
+  ExternalLink, Loader2, ChevronDown, ChevronUp, Filter, BarChart3,
 } from 'lucide-react';
 import {
   useAlerts, useMarkAlertRead, useMarkAllRead, useDeleteAlert,
@@ -17,13 +18,15 @@ const ALERT_TYPE_CONFIG: Record<AlertType, { label: string; color: string; icon:
   custom:     { label: 'Custom',     color: 'bg-gray-500/10 text-gray-400 border-gray-500/20',    icon: Bell },
 };
 
-function AlertCard({ alert, onRead, onDelete }: {
+function AlertCard({ alert, onRead, onDelete, onViewReport }: {
   alert: Alert;
   onRead: (id: string) => void;
   onDelete: (id: string) => void;
+  onViewReport?: (reportId: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const cfg = ALERT_TYPE_CONFIG[alert.alert_type] ?? ALERT_TYPE_CONFIG.custom;
+  const reportId = (alert.metadata as Record<string, unknown>)?.reportId as string | undefined;
 
   return (
     <div
@@ -92,6 +95,16 @@ function AlertCard({ alert, onRead, onDelete }: {
               )}
             </div>
           )}
+
+          {reportId && onViewReport && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onViewReport(reportId); }}
+              className="mt-2.5 inline-flex items-center gap-1.5 bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/20 text-blue-400 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <BarChart3 size={12} />
+              View Report
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -99,6 +112,7 @@ function AlertCard({ alert, onRead, onDelete }: {
 }
 
 export default function AlertsPage() {
+  const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<AlertType | ''>('');
   const [readFilter, setReadFilter] = useState<'all' | 'unread'>('all');
 
@@ -111,6 +125,10 @@ export default function AlertsPage() {
   const markRead    = useMarkAlertRead();
   const markAll     = useMarkAllRead();
   const deleteAlert = useDeleteAlert();
+
+  const handleViewReport = (reportId: string) => {
+    navigate(`/reports?open=${reportId}`);
+  };
 
   const alerts: Alert[] = data?.data ?? [];
   const unreadCount = alerts.filter(a => !a.is_read).length;
@@ -191,7 +209,8 @@ export default function AlertsPage() {
           {alerts.map((alert) => (
             <AlertCard key={alert.id} alert={alert}
               onRead={(id) => markRead.mutate(id)}
-              onDelete={(id) => deleteAlert.mutate(id)} />
+              onDelete={(id) => deleteAlert.mutate(id)}
+              onViewReport={handleViewReport} />
           ))}
         </div>
       )}
