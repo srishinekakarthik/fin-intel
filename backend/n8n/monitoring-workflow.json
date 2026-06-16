@@ -145,7 +145,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const result = $input.first().json;\nconst created = result.data?.alertsCreated ?? 0;\nif (created === 0) return [];\nreturn [{ json: { orgId: $('Code: Fetch Orgs (SEC)').first().json.orgId, alertsCreated: created, type: 'sec' } }];"
+        "jsCode": "const triggerItems = $('Code: Fetch Orgs (SEC)').all();\nconst results = [];\nconst currentItems = $input.all();\nfor (let i = 0; i < currentItems.length; i++) {\n  const created = currentItems[i].json.data?.alertsCreated ?? 0;\n  if (created > 0) {\n    results.push({ json: { orgId: triggerItems[i].json.orgId, alertsCreated: created, type: 'sec' } });\n  }\n}\nreturn results;"
       },
       "id": "node-check-sec-alerts",
       "name": "Code: Any New SEC Alerts?",
@@ -159,7 +159,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const result = $input.first().json;\nconst created = result.data?.alertsCreated ?? 0;\nif (created === 0) return [];\nreturn [{ json: { orgId: $('Code: Fetch Orgs (News)').first().json.orgId, alertsCreated: created, type: 'news' } }];"
+        "jsCode": "const triggerItems = $('Code: Fetch Orgs (News)').all();\nconst results = [];\nconst currentItems = $input.all();\nfor (let i = 0; i < currentItems.length; i++) {\n  const created = currentItems[i].json.data?.alertsCreated ?? 0;\n  if (created > 0) {\n    results.push({ json: { orgId: triggerItems[i].json.orgId, alertsCreated: created, type: 'news' } });\n  }\n}\nreturn results;"
       },
       "id": "node-check-news-alerts",
       "name": "Code: Any New News Alerts?",

@@ -75,7 +75,7 @@ export async function getRecentFilings(
           filingDate: string[];
           form: string[];
           primaryDocument: string[];
-          description: string[];
+          primaryDocDescription: string[];
         };
       };
     };
@@ -96,14 +96,14 @@ export async function getRecentFilings(
         filingDate: recent.filingDate[i]!,
         form: form,
         primaryDocument: primaryDoc,
-        description: recent.description[i] ?? form,
+        description: recent.primaryDocDescription?.[i] ?? form,
         url,
       });
     }
 
     return filings;
   } catch (err) {
-    logger.warn('EDGAR filings fetch failed', { cik, err });
+    logger.warn('EDGAR filings fetch failed', { cik, err: err instanceof Error ? err.stack : err });
     return [];
   }
 }

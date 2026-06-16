@@ -1,4 +1,6 @@
 import 'dotenv/config';
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // Added to bypass VPN SSL Interception
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
