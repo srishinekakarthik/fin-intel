@@ -20,8 +20,8 @@ export interface ExternalContext {
 // ── Intent detection ──────────────────────────────────────
 
 const FILING_KEYWORDS = /\b(10-?k|10-?q|8-?k|annual report|quarterly report|sec filing|edgar|proxy|def.?14a|form 4)\b/i;
-const STOCK_KEYWORDS  = /\b(stock price|share price|current price|trading at|market cap|ticker|quote|52.?week|ipo)\b/i;
-const NEWS_KEYWORDS   = /\b(news|headline|earnings|announcement|press release|guidance|forecast|analyst|upgrade|downgrade|beat|miss)\b/i;
+const STOCK_KEYWORDS = /\b(stock price|share price|current price|trading at|market cap|ticker|quote|52.?week|ipo)\b/i;
+const NEWS_KEYWORDS = /\b(news|headline|earnings|announcement|press release|guidance|forecast|analyst|upgrade|downgrade|beat|miss)\b/i;
 const METRIC_KEYWORDS = /\b(p\/e|pe ratio|eps|revenue|profit|margin|debt|equity|roe|current ratio|ebitda|cash flow|balance sheet|income statement|financial metrics)\b/i;
 
 interface Intent {
@@ -33,10 +33,10 @@ interface Intent {
 
 function detectIntent(query: string): Intent {
   return {
-    wantsStockQuote:  STOCK_KEYWORDS.test(query),
-    wantsFinancials:  METRIC_KEYWORDS.test(query),
-    wantsNews:        NEWS_KEYWORDS.test(query),
-    wantsFiling:      FILING_KEYWORDS.test(query),
+    wantsStockQuote: STOCK_KEYWORDS.test(query),
+    wantsFinancials: METRIC_KEYWORDS.test(query),
+    wantsNews: NEWS_KEYWORDS.test(query),
+    wantsFiling: FILING_KEYWORDS.test(query),
   };
 }
 
@@ -127,14 +127,14 @@ async function fetchStockContext(ticker: string): Promise<ExternalSource | null>
 
   if (financials) {
     const metrics = [
-      financials.peRatio    ? `P/E: ${financials.peRatio.toFixed(2)}` : null,
-      financials.eps        ? `EPS: $${financials.eps.toFixed(2)}` : null,
-      financials.grossMargin ? `Gross Margin: ${(financials.grossMargin * 100).toFixed(1)}%` : null,
-      financials.netMargin  ? `Net Margin: ${(financials.netMargin * 100).toFixed(1)}%` : null,
+      financials.peRatio ? `P/E: ${financials.peRatio.toFixed(2)}` : null,
+      financials.eps ? `EPS: $${financials.eps.toFixed(2)}` : null,
+      financials.grossMargin ? `Gross Margin: ${financials.grossMargin.toFixed(1)}%` : null,
+      financials.netMargin ? `Net Margin: ${financials.netMargin.toFixed(1)}%` : null,
       financials.week52High ? `52W High: $${financials.week52High}` : null,
-      financials.week52Low  ? `52W Low: $${financials.week52Low}` : null,
-      financials.returnOnEquity ? `ROE: ${(financials.returnOnEquity * 100).toFixed(1)}%` : null,
-      financials.debtToEquity   ? `D/E: ${financials.debtToEquity.toFixed(2)}` : null,
+      financials.week52Low ? `52W Low: $${financials.week52Low}` : null,
+      financials.returnOnEquity ? `ROE: ${financials.returnOnEquity.toFixed(1)}%` : null,
+      financials.debtToEquity ? `D/E: ${financials.debtToEquity.toFixed(2)}` : null,
     ].filter(Boolean);
     if (metrics.length) lines.push(`Key Metrics: ${metrics.join(' | ')}`);
   }
@@ -237,21 +237,21 @@ async function fetchYahooContext(ticker: string): Promise<ExternalSource | null>
     const sd = result.summaryDetail ?? {};
 
     const metrics: string[] = [
-      fd.totalRevenue?.fmt    ? `Total Revenue (TTM): ${fd.totalRevenue.fmt}` : null,
-      fd.grossProfits?.fmt    ? `Gross Profit (TTM): ${fd.grossProfits.fmt}` : null,
-      fd.ebitda?.fmt          ? `EBITDA: ${fd.ebitda.fmt}` : null,
-      fd.freeCashflow?.fmt    ? `Free Cash Flow: ${fd.freeCashflow.fmt}` : null,
-      fd.totalDebt?.fmt       ? `Total Debt: ${fd.totalDebt.fmt}` : null,
-      fd.totalCash?.fmt       ? `Total Cash: ${fd.totalCash.fmt}` : null,
-      fd.returnOnEquity?.fmt  ? `Return on Equity: ${fd.returnOnEquity.fmt}` : null,
-      fd.returnOnAssets?.fmt  ? `Return on Assets: ${fd.returnOnAssets.fmt}` : null,
-      fd.revenueGrowth?.fmt   ? `Revenue Growth (YoY): ${fd.revenueGrowth.fmt}` : null,
-      fd.earningsGrowth?.fmt  ? `Earnings Growth (YoY): ${fd.earningsGrowth.fmt}` : null,
-      ks.trailingEps?.fmt     ? `EPS (TTM): ${ks.trailingEps.fmt}` : null,
-      ks.forwardEps?.fmt      ? `EPS (Forward): ${ks.forwardEps.fmt}` : null,
-      ks.priceToBook?.fmt     ? `Price/Book: ${ks.priceToBook.fmt}` : null,
-      sd.dividendYield?.fmt   ? `Dividend Yield: ${sd.dividendYield.fmt}` : null,
-      sd.payoutRatio?.fmt     ? `Payout Ratio: ${sd.payoutRatio.fmt}` : null,
+      fd.totalRevenue?.fmt ? `Total Revenue (TTM): ${fd.totalRevenue.fmt}` : null,
+      fd.grossProfits?.fmt ? `Gross Profit (TTM): ${fd.grossProfits.fmt}` : null,
+      fd.ebitda?.fmt ? `EBITDA: ${fd.ebitda.fmt}` : null,
+      fd.freeCashflow?.fmt ? `Free Cash Flow: ${fd.freeCashflow.fmt}` : null,
+      fd.totalDebt?.fmt ? `Total Debt: ${fd.totalDebt.fmt}` : null,
+      fd.totalCash?.fmt ? `Total Cash: ${fd.totalCash.fmt}` : null,
+      fd.returnOnEquity?.fmt ? `Return on Equity: ${fd.returnOnEquity.fmt}` : null,
+      fd.returnOnAssets?.fmt ? `Return on Assets: ${fd.returnOnAssets.fmt}` : null,
+      fd.revenueGrowth?.fmt ? `Revenue Growth (YoY): ${fd.revenueGrowth.fmt}` : null,
+      fd.earningsGrowth?.fmt ? `Earnings Growth (YoY): ${fd.earningsGrowth.fmt}` : null,
+      ks.trailingEps?.fmt ? `EPS (TTM): ${ks.trailingEps.fmt}` : null,
+      ks.forwardEps?.fmt ? `EPS (Forward): ${ks.forwardEps.fmt}` : null,
+      ks.priceToBook?.fmt ? `Price/Book: ${ks.priceToBook.fmt}` : null,
+      sd.dividendYield?.fmt ? `Dividend Yield: ${sd.dividendYield.fmt}` : null,
+      sd.payoutRatio?.fmt ? `Payout Ratio: ${sd.payoutRatio.fmt}` : null,
     ].filter(Boolean) as string[];
 
     if (!metrics.length) return null;
