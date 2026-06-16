@@ -28,14 +28,11 @@ export interface DocumentStatus {
 
 export const documentsApi = {
   upload: async (payload: UploadDocumentPayload): Promise<Document> => {
-    const form = new FormData();
-    form.append('file', payload.file);
-    form.append('title', payload.title);
-    form.append('doc_type', payload.doc_type);
-    if (payload.company_id) form.append('company_id', payload.company_id);
-
-    const { data } = await api.post('/documents/upload', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    const { data } = await api.postForm('/documents/upload', {
+      file: payload.file,
+      title: payload.title,
+      doc_type: payload.doc_type,
+      ...(payload.company_id ? { company_id: payload.company_id } : {}),
     });
     return data.data;
   },
