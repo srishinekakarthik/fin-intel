@@ -1,13 +1,10 @@
-import { GoogleGenerativeAI, TaskType } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { env } from '../config/env';
 
 // Single client — apiVersion is set per-call via requestOptions.
 const genAI = new GoogleGenerativeAI(env.GOOGLE_GEMINI_API_KEY);
 
-// text-embedding-004 is no longer available on newer API keys.
-// gemini-embedding-001 outputs 3072 dims by default; we truncate to 768
-// via outputDimensionality to stay compatible with the existing vector(768) pgvector column.
-const EMBEDDING_MODEL = 'gemini-embedding-001';
+// (Embedding model is now mistral-embed)
 const GENERATION_MODEL = 'gemini-3.5-flash';
 
 // ── Embeddings ────────────────────────────────────────────
@@ -20,13 +17,27 @@ const GENERATION_MODEL = 'gemini-3.5-flash';
  * output to match the vector(768) column in document_chunks.
  */
 export async function embedText(text: string): Promise<number[]> {
-  const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
-  const result = await model.embedContent({
-    content: { role: 'user', parts: [{ text }] },
-    taskType: TaskType.RETRIEVAL_QUERY,
-    outputDimensionality: 768,
-  } as Parameters<typeof model.embedContent>[0]);
-  return result.embedding.values;
+  if (!env.MISTRAL_API_KEY) {
+    throw new Error('MISTRAL_API_KEY is missing from environment variables');
+  }
+  const response = await fetch('https://api.mistral.ai/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': `Bearer ${env.MISTRAL_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: 'mistral-embed',
+      input: [text]
+    })
+  });
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Mistral API error: ${response.status} ${response.statusText} - ${errorBody}`);
+  }
+  const data = (await response.json()) as any;
+  return data.data[0].embedding;
 }
 
 // ── Text generation ───────────────────────────────────────

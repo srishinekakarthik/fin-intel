@@ -68,6 +68,7 @@ export class DocumentService {
       .single();
 
     if (docError || !doc) {
+      console.error('docError:', docError);
       throw new AppError('Failed to create document record', 500);
     }
 

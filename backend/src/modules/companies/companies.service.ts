@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../../config/supabase';
 import { AppError } from '../../middleware/error';
 import { writeAuditLog } from '../../services/audit';
+import { logger } from '../../config/logger';
 import type { Company, AuthContext } from '../../types';
 
 interface CreateCompanyInput {
@@ -100,6 +101,16 @@ export class CompanyService {
       .single();
 
     if (error || !data) throw new AppError('Failed to create company', 500);
+
+    // Automatically fetch initial market data snapshot if it has a ticker
+    if (data.ticker) {
+      // Run asynchronously so we don't block the API response
+      import('../../services/market-data').then(({ refreshCompanySnapshot }) => {
+        refreshCompanySnapshot(data.id, data.ticker as string).catch((e) => {
+          logger.error('Failed to fetch initial market snapshot', { companyId: data.id, error: e });
+        });
+      });
+    }
 
     await writeAuditLog(auth, {
       action: 'company.created',

@@ -111,7 +111,13 @@ Respond ONLY in this exact JSON format, no extra text:
     try {
       const raw = await generateText(prompt, { temperature: 0.1 });
       const cleaned = raw.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(cleaned);
+      const jsonStart = cleaned.indexOf('{');
+      const jsonEnd = cleaned.lastIndexOf('}');
+      if (jsonStart === -1 || jsonEnd === -1) {
+        console.error('Raw AI Response:', raw);
+        throw new Error('No JSON object found in response');
+      }
+      const parsed = JSON.parse(cleaned.substring(jsonStart, jsonEnd + 1));
 
       const breakdown = {
         revenueGrowth: Math.min(20, Math.max(0, parsed.revenueGrowth ?? 0)),
@@ -134,6 +140,7 @@ Respond ONLY in this exact JSON format, no extra text:
         reasoning: parsed.reasoning ?? '',
       };
     } catch (err) {
+      console.error('Detailed Health Score Error:', err);
       logger.error('Health score generation failed', { companyId, err });
       throw new Error('Failed to generate health score');
     }

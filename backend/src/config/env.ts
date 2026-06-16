@@ -14,11 +14,12 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('7d'),
 
   // AI — Gemini only
-  GOOGLE_GEMINI_API_KEY: z.string().min(1),
+  GOOGLE_GEMINI_API_KEY: z.string().min(1, 'Missing Google Gemini API key'),
+  MISTRAL_API_KEY: z.string().optional(),
+  YAHOO_FINANCE_BASE_URL: z.string().url().default('https://query1.finance.yahoo.com'),
 
   // Market data
   FINNHUB_API_KEY: z.string().optional(),
-  YAHOO_FINANCE_BASE_URL: z.string().url().default('https://query1.finance.yahoo.com'),
 
   // n8n Cloud — webhook base + individual workflow paths
   N8N_WEBHOOK_BASE_URL: z.string().url().optional(),

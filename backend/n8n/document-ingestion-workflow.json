@@ -3,76 +3,61 @@
   "nodes": [
     {
       "parameters": {
-        "mode": "insert",
-        "tableName": {
-          "__rl": true,
-          "value": "documents",
-          "mode": "list",
-          "cachedResultName": "documents"
+        "method": "POST",
+        "url": "=https://unlovable-target-dominoes.ngrok-free.dev/api/v1/documents/{{ $json.documentId }}/ingestion-failed",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Callback-Secret",
+              "value": "8b096c59121a2cd2b774abfabbf73afd332ed532663dc793e477d88e44608174"
+            }
+          ]
         },
-        "options": {
-          "queryName": "search_document_chunks"
-        }
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "orgId",
+              "value": "={{ $json.orgId }}"
+            },
+            {
+              "name": "errorMessage",
+              "value": "={{ $json.errorMessage }}"
+            }
+          ]
+        },
+        "options": {}
       },
-      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
-      "typeVersion": 1.3,
+      "id": "60bd550a-f9cd-4a2d-a2cc-504a8bb9935d",
+      "name": "HTTP Request: Callback Failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
-        400,
-        0
-      ],
-      "id": "625bdf9b-7b86-41a2-8713-087a1cec2647",
-      "name": "Supabase Vector Store",
-      "credentials": {
-        "supabaseApi": {
-          "id": "3jHKONoWzd8Jj2gu",
-          "name": "Supabase account 2"
-        }
-      }
-    },
-    {
-      "parameters": {},
-      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
-      "typeVersion": 1,
-      "position": [
-        544,
-        208
-      ],
-      "id": "b71ed62d-bfe3-4af2-acde-fb56913bee3b",
-      "name": "Embeddings Google Gemini",
-      "credentials": {
-        "googlePalmApi": {
-          "id": "LWsVfXBeMi6tLauA",
-          "name": "Google Gemini(PaLM) Api account 2"
-        }
-      }
-    },
-    {
-      "parameters": {},
-      "type": "@n8n/n8n-nodes-langchain.documentPdfDataLoader",
-      "typeVersion": 1,
-      "position": [
-        352,
-        208
-      ],
-      "id": "dd4f229a-a285-4d15-b0f3-6b1b85fe0fc1",
-      "name": "PDF Data Loader"
+        624,
+        528
+      ]
     },
     {
       "parameters": {
-        "chunkSize": 1000,
-        "chunkOverlap": 200
+        "jsCode": "// Build error payload\nconst webhookData = $('Webhook: Receive from Backend').first().json.body;\nconst error = $input.first()?.json?.error ?? 'Unknown ingestion error';\n\nreturn [{\n  json: {\n    documentId: webhookData.documentId,\n    orgId: webhookData.orgId,\n    errorMessage: String(error)\n  }\n}];"
       },
-      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
-      "typeVersion": 1,
+      "id": "6843edb2-b074-49e4-a14f-fe53a8da5278",
+      "name": "Code: Build Error Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
-        352,
-        380
-      ],
-      "id": "node-text-splitter",
-      "name": "Recursive Character Text Splitter"
+        416,
+        528
+      ]
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "=https://unlovable-target-dominoes.ngrok-free.dev/api/v1/documents/{{ $json.documentId }}/ingestion-complete",
         "sendHeaders": true,
         "headerParameters": {
@@ -110,27 +95,29 @@
         },
         "options": {}
       },
+      "id": "6b1b7eb2-bf77-4661-9906-0bed26409397",
+      "name": "HTTP Request: Callback Success",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
+      "typeVersion": 4.2,
       "position": [
-        960,
-        0
+        800,
+        320
       ],
-      "id": "0ea08d80-0217-4214-bb41-2d6ac18582aa",
-      "name": "HTTP Request: Callback Success"
+      "notes": "Calls backend to mark document as ready. Uses N8N_CALLBACK_SECRET env var for auth."
     },
     {
       "parameters": {
         "jsCode": "// Collect stats from all inserted chunks\nconst items = $input.all();\nconst webhookData = $('Webhook: Receive from Backend').first().json.body;\n\n// Count unique pages from chunk metadata\nconst pages = new Set(items.map(i => i.json?.metadata?.loc?.pageNumber ?? 1));\n\nreturn [{\n  json: {\n    documentId: webhookData.documentId,\n    orgId: webhookData.orgId,\n    totalChunks: items.length,\n    totalPages: pages.size,\n    durationMs: Date.now() - new Date($('Webhook: Receive from Backend').first().json.headers?.['x-ingestion-start'] ?? Date.now()).getTime()\n  }\n}];"
       },
+      "id": "bc85aea3-5320-4c28-ba92-67becfc35863",
+      "name": "Code: Build Stats",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        752,
-        0
+        512,
+        320
       ],
-      "id": "3745b8fe-96d1-4c8c-917a-8cd418367a8d",
-      "name": "Code: Build Stats"
+      "notes": "Aggregates chunk count and page count to send back to the backend callback."
     },
     {
       "parameters": {
@@ -143,14 +130,31 @@
           }
         }
       },
+      "id": "4e0c2889-f9fb-4cc9-aac1-a65bad1a0d6c",
+      "name": "HTTP Request: Download PDF",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
+      "typeVersion": 4.2,
       "position": [
-        208,
-        0
+        -96,
+        320
       ],
-      "id": "34399a3a-d92c-4c28-8def-80b1d6565e86",
-      "name": "HTTP Request: Download PDF"
+      "notes": "Downloads the PDF from Supabase Storage using the signed URL provided by the backend."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"received\": true, \"documentId\": \"{{ $json.body.documentId }}\" }",
+        "options": {}
+      },
+      "id": "69e88be7-edb0-4e09-af88-e3a3401695de",
+      "name": "Respond: Acknowledge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        176
+      ],
+      "notes": "Immediately ACK the backend so it doesn't time out. Ingestion continues async below."
     },
     {
       "parameters": {
@@ -159,77 +163,94 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
-      "position": [
-        0,
-        0
-      ],
-      "id": "c18d7493-36d1-4e02-93a6-1fa4aeef67f0",
+      "id": "ecc0aeb6-2b3b-48c8-b9ee-e58f75dbd1d5",
       "name": "Webhook: Receive from Backend",
-      "webhookId": "475e14a3-ec92-4c29-9d5a-680c12d5c8ad"
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -336,
+        320
+      ],
+      "webhookId": "f845289e-3a6e-40db-ab80-91f00ea4271c",
+      "notes": "Backend calls this when a user uploads a PDF. Body contains: documentId, orgId, signedUrl, title, docType, companyId"
     },
     {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "{ \"received\": true, \"documentId\": \"{{ $json.body.documentId }}\" }",
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "document_chunks",
+          "mode": "list",
+          "cachedResultName": "document_chunks"
+        },
+        "options": {
+          "queryName": "search_document_chunks"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        320
+      ],
+      "id": "4af1d1b9-6673-4018-bc63-797cc15bd56f",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "3jHKONoWzd8Jj2gu",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "binary",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "document_id",
+                "value": "={{ $('Webhook: Receive from Backend').first().json.body.documentId }}"
+              },
+              {
+                "name": "org_id",
+                "value": "={{ $('Webhook: Receive from Backend').first().json.body.orgId }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        32,
+        560
+      ],
+      "id": "74fb6751-714e-4d66-bfce-e3e5ef3e9ee4",
+      "name": "Default Data Loader1"
+    },
+    {
+      "parameters": {
         "options": {}
       },
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.5,
+      "type": "@n8n/n8n-nodes-langchain.embeddingsMistralCloud",
+      "typeVersion": 1,
       "position": [
-        208,
-        -192
+        240,
+        544
       ],
-      "id": "61f82cb6-2cb5-4765-9dbf-66369bbd72f4",
-      "name": "Respond: Acknowledge"
+      "id": "dae86e1d-c6c8-4e34-9292-379c8c3164ff",
+      "name": "Embeddings Mistral Cloud",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "r2BzyD4oP9lRygWg",
+          "name": "Mistral Cloud account"
+        }
+      }
     }
   ],
+  "pinData": {},
   "connections": {
-    "Supabase Vector Store": {
-      "main": [
-        [
-          {
-            "node": "Code: Build Stats",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Embeddings Google Gemini": {
-      "ai_embedding": [
-        [
-          {
-            "node": "Supabase Vector Store",
-            "type": "ai_embedding",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "PDF Data Loader": {
-      "ai_document": [
-        [
-          {
-            "node": "Recursive Character Text Splitter",
-            "type": "ai_document",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Recursive Character Text Splitter": {
-      "ai_document": [
-        [
-          {
-            "node": "Supabase Vector Store",
-            "type": "ai_document",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Code: Build Stats": {
       "main": [
         [
@@ -267,11 +288,52 @@
           }
         ]
       ]
+    },
+    "Supabase Vector Store": {
+      "main": [
+        [
+          {
+            "node": "Code: Build Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader1": {
+      "ai_document": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Mistral Cloud": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a9d1e90b-dd51-4d3c-a820-3e8740835b47",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "1a8c53f61eedd179cceb44f6c51ab525334129b2e8035266c4eac48b4f94ee93"
-  }
+  },
+  "nodeGroups": [],
+  "id": "V3DydScgJV0NOqho",
+  "tags": []
 }
