@@ -12,6 +12,48 @@ import { useSecFilings } from '../../hooks/useAlerts';
 import InvestmentMemoModal from './InvestmentMemoModal';
 import CompetitorAnalysisModal from './CompetitorAnalysisModal';
 
+function ScoreBreakdown({ breakdown }: { breakdown: Record<string, number> | null }) {
+  if (!breakdown) return null;
+
+  const labels: Record<string, string> = {
+    revenueGrowth: 'Revenue Growth',
+    profitability: 'Profitability',
+    liquidity: 'Liquidity',
+    debtLevels: 'Debt Levels',
+    riskExposure: 'Risk Exposure'
+  };
+
+  // Sort according to our specific order or just use the keys present
+  const keys = ['revenueGrowth', 'profitability', 'liquidity', 'debtLevels', 'riskExposure'];
+
+  return (
+    <div className="mt-5 space-y-3 border-t border-gray-800 pt-4 text-left">
+      <h3 className="text-gray-400 text-xs font-medium uppercase tracking-wide">Score Breakdown</h3>
+      <div className="space-y-2.5">
+        {keys.map((key) => {
+          const value = breakdown[key];
+          if (value == null) return null;
+          const label = labels[key] || key;
+          const percentage = (value / 20) * 100;
+          const colorClass = value >= 14 ? 'bg-emerald-500' : value >= 8 ? 'bg-amber-500' : 'bg-red-500';
+
+          return (
+            <div key={key} className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-300">{label}</span>
+                <span className="text-gray-400 font-medium">{value}/20</span>
+              </div>
+              <div className="bg-gray-800 rounded-full h-1.5 w-full">
+                <div className={`h-1.5 rounded-full transition-all ${colorClass}`} style={{ width: `${percentage}%` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function InfoRow({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
@@ -38,7 +80,7 @@ export default function CompanyDetailPage() {
   const execSummary = useGenerateExecutiveSummary();
 
   const [scoreResult, setScoreResult] = useState<null | {
-    total: number; strengths: string[]; risks: string[]; reasoning: string;
+    total: number; breakdown: Record<string, number>; strengths: string[]; risks: string[]; reasoning: string;
   }>(null);
   const [showMemo, setShowMemo] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
@@ -82,6 +124,7 @@ export default function CompanyDetailPage() {
 
   const snap = company.company_snapshots?.[0];
   const score = scoreResult?.total ?? snap?.health_score;
+  const breakdown = scoreResult?.breakdown ?? snap?.score_detail;
   const scoreColor = score == null ? 'text-gray-500' : score >= 70 ? 'text-emerald-400' : score >= 40 ? 'text-amber-400' : 'text-red-400';
 
   return (
@@ -172,7 +215,9 @@ export default function CompanyDetailPage() {
                 <div className="mt-3 bg-gray-800 rounded-full h-1.5">
                   <div className={`h-1.5 rounded-full transition-all ${score >= 70 ? 'bg-emerald-500' : score >= 40 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${score}%` }} />
                 </div>
-                {scoreResult && <p className="text-gray-500 text-xs mt-3 text-left">{scoreResult.reasoning}</p>}
+                {scoreResult && <p className="text-gray-500 text-xs mt-4 text-left">{scoreResult.reasoning}</p>}
+                
+                <ScoreBreakdown breakdown={breakdown || null} />
               </div>
             ) : (
               <div className="text-center py-4">

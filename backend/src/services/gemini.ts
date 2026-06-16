@@ -8,7 +8,7 @@ const genAI = new GoogleGenerativeAI(env.GOOGLE_GEMINI_API_KEY);
 // gemini-embedding-001 outputs 3072 dims by default; we truncate to 768
 // via outputDimensionality to stay compatible with the existing vector(768) pgvector column.
 const EMBEDDING_MODEL = 'gemini-embedding-001';
-const GENERATION_MODEL = 'gemini-2.5-flash'; // upgraded from 1.5-pro — better perf, available on current keys
+const GENERATION_MODEL = 'gemini-3.5-flash';
 
 // ── Embeddings ────────────────────────────────────────────
 // NOTE: Batch embedding (for ingestion) is handled by n8n.

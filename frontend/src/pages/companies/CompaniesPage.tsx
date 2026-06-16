@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Plus, Search, Building2, Star, StarOff, Trash2 } from 'lucide-react';
 import { useCompanies, useToggleTracked, useDeleteCompany } from '../../hooks/useCompanies';
 import type { Company } from '../../types';
@@ -23,10 +23,14 @@ function CompanyRow({ company, onToggle, onDelete }: {
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
+  const navigate = useNavigate();
   const snap = company.company_snapshots?.[0];
 
   return (
-    <div className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-800/50 transition-colors group border-b border-gray-800/60 last:border-0">
+    <div 
+      onClick={() => navigate(`/companies/${company.id}`)}
+      className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-800/50 transition-colors group border-b border-gray-800/60 last:border-0 cursor-pointer"
+    >
       {/* Company identity */}
       <div className="w-8 h-8 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0">
         <span className="text-gray-300 text-xs font-mono font-medium">
@@ -84,14 +88,14 @@ function CompanyRow({ company, onToggle, onDelete }: {
       {/* Actions */}
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
-          onClick={() => onToggle(company.id)}
+          onClick={(e) => { e.stopPropagation(); onToggle(company.id); }}
           className="p-1.5 text-gray-500 hover:text-amber-400 rounded transition-colors"
           title={company.is_tracked ? 'Untrack' : 'Track'}
         >
           {company.is_tracked ? <StarOff size={14} /> : <Star size={14} />}
         </button>
         <button
-          onClick={() => onDelete(company.id)}
+          onClick={(e) => { e.stopPropagation(); onDelete(company.id); }}
           className="p-1.5 text-gray-500 hover:text-red-400 rounded transition-colors"
           title="Delete"
         >

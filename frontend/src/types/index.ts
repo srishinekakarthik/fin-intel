@@ -48,6 +48,7 @@ export interface Company {
     market_cap: number | null;
     pe_ratio: number | null;
     financials: Record<string, unknown> | null;
+    score_detail: Record<string, number> | null;
     snapshot_at: string;
   }>;
 }
@@ -87,6 +88,7 @@ export interface CompanySnapshot {
   stock_price: number | null;
   market_cap: number | null;
   health_score: number | null;
+  score_detail: Record<string, number> | null;
   pe_ratio: number | null;
   financials: Record<string, unknown> | null;
   snapshot_at: string;
