@@ -5,7 +5,7 @@ import { env } from '../config/env';
 const genAI = new GoogleGenerativeAI(env.GOOGLE_GEMINI_API_KEY);
 
 // (Embedding model is now mistral-embed)
-const GENERATION_MODEL = 'gemini-3.5-flash';
+const GENERATION_MODEL = 'gemini-2.5-flash';
 
 // ── Embeddings ────────────────────────────────────────────
 // NOTE: Batch embedding (for ingestion) is handled by n8n.

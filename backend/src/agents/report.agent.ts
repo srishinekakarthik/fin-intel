@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../config/supabase';
 import { generateText } from '../services/gemini';
 import { semanticSearch } from '../services/vector-search';
 import { getCompanyNews } from '../services/market-data';
+import { logger } from '../config/logger';
 
 import type { ReportType } from '../types';
 
@@ -70,6 +71,45 @@ export class ReportAgent {
         .from('reports')
         .update({ content, status: 'ready', updated_at: new Date().toISOString() })
         .eq('id', report.id);
+
+      // Email all users in the org
+      try {
+        const { data: users } = await supabaseAdmin
+          .from('users')
+          .select('email')
+          .eq('org_id', input.orgId)
+          .eq('is_active', true);
+
+        if (users?.length) {
+          const htmlContent = `
+            <h2>New Report Generated: ${report.title}</h2>
+            <p>Your ${input.reportType} report has been successfully generated and is now available in your FinIntel dashboard.</p>
+            <hr />
+            <div style="white-space: pre-wrap; font-family: sans-serif; line-height: 1.5;">${content}</div>
+          `;
+
+          for (const user of users) {
+            const emailPayload = {
+              to: user.email,
+              subject: `FinIntel Report: ${report.title}`,
+              html: htmlContent,
+            };
+
+            const n8nWebhookUrl = process.env.N8N_EMAIL_WEBHOOK_URL;
+            if (n8nWebhookUrl) {
+              await fetch(n8nWebhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(emailPayload),
+              });
+            } else {
+              logger.info('📧 [N8N MOCK EMAIL]', emailPayload);
+            }
+          }
+        }
+      } catch (emailErr) {
+        logger.error('Failed to email generated report', { reportId: report.id, err: emailErr });
+      }
 
       return report.id;
     } catch (err) {

@@ -90,7 +90,7 @@ create table document_chunks (
   id           uuid primary key default uuid_generate_v4(),
   document_id  uuid not null references documents(id) on delete cascade,
   org_id       uuid not null references organizations(id) on delete cascade,
-  chunk_index  integer not null,
+  chunk_index  integer,
   page_number  integer not null default 1,
   content      text not null,
   embedding    vector(768),

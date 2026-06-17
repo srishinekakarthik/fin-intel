@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '../config/supabase';
 import { generateText } from './gemini';
 import { logger } from '../config/logger';
+import { uploadDocumentToStorage, getSignedUrl } from './storage';
+import { triggerN8nIngestion } from './ingestion';
 
 
 const EDGAR_SUBMISSIONS = 'https://data.sec.gov/submissions';
@@ -216,6 +218,104 @@ export async function monitorSecFilings(orgId: string): Promise<number> {
           ticker: company.ticker,
         },
       });
+
+      // ---- 1. Auto-Ingest into LangChain Vector Store (only 10-K and 10-Q) ----
+      if (['10-K', '10-Q'].includes(latestFiling.form)) {
+        try {
+          const docTitle = `${company.name} ${latestFiling.form} (${latestFiling.filingDate})`;
+          const fileName = `${company.ticker}_${latestFiling.form.toLowerCase()}_${latestFiling.filingDate}.txt`;
+          
+          // Create document record
+          const { data: doc } = await supabaseAdmin
+            .from('documents')
+            .insert({
+              org_id: orgId,
+              company_id: company.id,
+              title: docTitle,
+              doc_type: 'sec_filing',
+              storage_path: 'pending',
+              file_size: Buffer.byteLength(filingText, 'utf8'),
+              status: 'pending',
+            })
+            .select()
+            .single();
+
+          if (doc) {
+            // Upload text to storage
+            const storagePath = await uploadDocumentToStorage(
+              orgId,
+              doc.id,
+              fileName,
+              Buffer.from(filingText, 'utf8'),
+              'text/plain'
+            );
+
+            await supabaseAdmin
+              .from('documents')
+              .update({ storage_path: storagePath, status: 'processing' })
+              .eq('id', doc.id);
+
+            const signedUrl = await getSignedUrl(storagePath, 86400);
+
+            // Trigger n8n ingestion
+            triggerN8nIngestion({
+              documentId: doc.id,
+              orgId,
+              storagePath,
+              signedUrl,
+              title: docTitle,
+              docType: 'sec_filing',
+              companyId: company.id,
+            });
+            logger.info('Auto-ingesting SEC filing', { documentId: doc.id, companyId: company.id });
+          }
+        } catch (ingestErr) {
+          logger.error('Failed to auto-ingest SEC filing', { companyId: company.id, err: ingestErr });
+        }
+      }
+
+      // ---- 2. Send Email Alerts to all active users in the org ----
+      try {
+        const { data: users } = await supabaseAdmin
+          .from('users')
+          .select('email, full_name')
+          .eq('org_id', orgId)
+          .eq('is_active', true);
+
+        if (users?.length) {
+          const htmlContent = `
+            <h2>New SEC Filing Alert: ${company.name}</h2>
+            <p><strong>Filing:</strong> ${latestFiling.form} filed on ${latestFiling.filingDate}</p>
+            <h3>AI Summary</h3>
+            <ul>
+              ${summary.split('\n').filter(s => s.trim().startsWith('-')).map(s => `<li>${s.replace(/^-/, '').trim()}</li>`).join('')}
+            </ul>
+            <p><a href="${latestFiling.url}">View Source Document at SEC EDGAR</a></p>
+            <p><em>This filing has automatically been queued for ingestion into your FinIntel knowledge base.</em></p>
+          `;
+
+          for (const user of users) {
+            const emailPayload = {
+              to: user.email,
+              subject: `SEC Alert: ${company.name} filed ${latestFiling.form}`,
+              html: htmlContent,
+            };
+
+            const n8nWebhookUrl = process.env.N8N_EMAIL_WEBHOOK_URL;
+            if (n8nWebhookUrl) {
+              await fetch(n8nWebhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(emailPayload),
+              });
+            } else {
+              logger.info('📧 [N8N MOCK EMAIL]', emailPayload);
+            }
+          }
+        }
+      } catch (emailErr) {
+        logger.error('Failed to send SEC email alerts', { orgId, err: emailErr });
+      }
 
       alertsCreated++;
     } catch (err) {
